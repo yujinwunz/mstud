@@ -16,6 +16,18 @@ class Card(object):
     suit_map = ["Diamond", "Club", "Heart", "Spade"]
     def __str__(self):
         return "%s of %ss" % (Card.rank_map[self.rank-1], Card.suit_map[self.suit])
+    def __eq__(self, other):
+        if isinstance(other, Card):
+            return self.rank == other.rank and self.suit == other.suit
+        else:
+            return false
+    def __lt__(self, other):
+        if isinstance(other, Card):
+            if self.rank == other.rank:
+                return self.suit < other.suit
+            else:
+                return self.rank < other.rank
+
 
 class Deck(object):
     def __init__(self, decks=1, shuffled=True):
