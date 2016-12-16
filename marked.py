@@ -5,79 +5,7 @@ from evaluate import *
 dp = {}
 evals = 0
 
-def ev(ncards, suited, cards, bets):
-    global dp, evals, payoutcalcs
-    if ncards == 5:
-        k = (suited, reduce(lambda a, b: a*13+b, cards))
-        if k not in dp:
-            dp[k] = payout(map(lambda a: Card(a[1]+1, (a[0]%4)*(1-suited)), enumerate(cards)))
-        return (dp[k] * bets, None)
-    key = (ncards, suited, reduce(lambda a, b: a*13+b, cards), bets)
-
-    if key in dp:
-        return dp[key]
-
-    evals += 1
-    if evals % 1000 == 0:
-        print evals
-
-    best = (0, 0)
-    for thisbet in [1, 3]:
-        value = 0.0
-        for k in range(52):
-            if cards.count(k%13) > k/13:
-                continue
-            if suited and k < 13:
-                value += (ev(ncards+1, 1, sorted(cards + [k%13]), bets + thisbet)[0] - thisbet) / (52. - ncards)
-            else:
-                value += (ev(ncards+1, 0, sorted(cards + [k%13]), bets + thisbet)[0] - thisbet) / (52. - ncards)
-        best = max(best, (value, thisbet))
-    dp[key] = best
-
-    return best
-
-
-def markedJackDp(ncards, suited, cards, bets, marked):
-    global dp, evals, payoutcalcs
-    if ncards == 5:
-        k = (suited, reduce(lambda a, b: a*13+b, cards))
-        if k not in dp:
-            dp[k] = payout(map(lambda a: Card(a[1]+1, (a[0]%4)*(1-suited)), enumerate(cards)))
-        return (dp[k] * bets, None)
-    key = (ncards, suited, reduce(lambda a, b: a*13+b, cards), bets, marked[2:])
-
-    if key in dp:
-        return dp[key]
-
-    evals += 1
-    if evals % 1000 == 0:
-        print evals
-
-    best = (0, 0)
-    for thisbet in [1, 3]:
-        value = 0.0
-        thisIter = 0
-        for k in range(52):
-            if cards.count(k%13) > k/13:
-                continue
-            if marked[ncards] == 1 and k%13 != 10: # marked cards indicate jacks only
-                continue
-            if marked[ncards] == 2 and k%13 != 11: # marked cards indicate queens only
-                continue
-            if marked[ncards] == 0 and (k%13 == 10 or k%13 == 11): # unmarked cards cannot be jacks or queens
-                continue
-            if suited and k < 13:
-                value += (markedJackDp(ncards+1, 1, sorted(cards + [k%13]), bets + thisbet, marked)[0] - thisbet)
-            else:
-                value += (markedJackDp(ncards+1, 0, sorted(cards + [k%13]), bets + thisbet, marked)[0] - thisbet)
-            thisIter += 1
-        if thisIter == 0:
-            print "Error"
-        value = value / thisIter
-        best = max(best, (value, thisbet))
-    dp[key] = best
-
-    return best
+marked = [11]
 
 if __name__=="__main__":
     tot = 0.
@@ -102,15 +30,22 @@ if __name__=="__main__":
         bets = int(raw_input("bets "))
         print ev(ncards, suited, cards, bets)
 
-def playOptimallyBasic(cards, bets):
+def playOptimallyMarked(cards, bets, njacks):
     """returns either 0, 1, or 3"""
     ptsTable = [0,2,0,0,0,0,1,1,1,1,1,2,2,2]
     cards = sorted(cards)
     pts = sum([ptsTable[i.rank] for i in cards])
+
     if len(cards) == 2:
-        if hasPair(cards): return 3
-        if isStraightFlush(cards) and cards[0].rank >= 5: return 1
-        if pts >= 2: return 1
+        if rankOfPair(cards) == 1 or rankOfPair(cards) >= 6: return 3
+        if hasPair(cards) and njacks == 0 or njacks >= 2: return 3
+        if hasPair(cards) and njacks == 1: return 1
+        if pts != 4 and (cards[0].rank == 11 or cards[1].rank == 11) and njacks == 0: return 0
+
+        if pts >= 4: return 1
+        if cards[0].rank == 11 or cards[1].rank == 11 and njacks > 0: return 1
+        if pts >= 2 and njacks == 0: return 1
+        if njacks >= 2: return 1
         return 0
 
     if len(cards) == 3:
@@ -130,6 +65,7 @@ def playOptimallyBasic(cards, bets):
         if pts >= 3: return 1
         if isStraight(cards) and cards[0].rank >= 4: return 1
         if isStraight(cards, 1) and pts >= 2: return 1
+        if njacks >= 2: return 1
         return 0
 
     if len(cards) == 4:
